@@ -1,0 +1,404 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MuGöl Qr Okuyucu | Modern</title>
+    
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <!-- FontAwesome İkonları -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- QR Kod okuma işlemi için gerekli kütüphane -->
+    <script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
+
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: 'Poppins', sans-serif;
+        }
+        body {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+            color: #333;
+        }
+        .container {
+            width: 100%;
+            max-width: 450px;
+            background: rgba(255, 255, 255, 0.98);
+            padding: 35px 25px;
+            border-radius: 24px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.25);
+            text-align: center;
+        }
+        .header {
+            margin-bottom: 25px;
+        }
+        .header h1 {
+            color: #1e293b;
+            font-size: 26px;
+            font-weight: 700;
+            margin-bottom: 5px;
+        }
+        .header p {
+            color: #64748b;
+            font-size: 14px;
+        }
+        
+        /* Tarayıcı Alanı (Boyut Sabitleme) */
+        #reader {
+            width: 100%;
+            height: 300px; /* Çerçevenin sabit yüksekliği */
+            border-radius: 16px;
+            margin-bottom: 20px;
+            background-color: #f1f5f9;
+            border: 2px dashed #cbd5e1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+            position: relative;
+            transition: all 0.3s ease;
+        }
+        
+        /* Çerçeve aktifken görünümü değiştir */
+        #reader.active {
+            border: 2px solid #4f46e5;
+            background-color: #000;
+            box-shadow: 0 0 15px rgba(79, 70, 229, 0.3);
+        }
+
+        /* Boş durumdayken gösterilecek yazı */
+        #reader:empty::before {
+            content: "Kamera / Resim Bekleniyor...";
+            color: #94a3b8;
+            font-size: 14px;
+            font-weight: 500;
+        }
+
+        /* Kameranın veya yüklenen resmin çerçevenin dışına taşmasını veya onu büyütmesini engelle */
+        #reader video, #reader img, #reader canvas {
+            max-width: 100% !important;
+            max-height: 100% !important;
+            object-fit: contain !important; /* Görüntüyü kırpmadan çerçeveye sığdırır */
+            border-radius: 14px;
+        }
+
+        /* Buton Grupları */
+        .action-group {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            margin-bottom: 15px;
+        }
+        .btn {
+            padding: 14px 20px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            border: none;
+            border-radius: 12px;
+            color: white;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            width: 100%;
+        }
+        .btn:active { transform: scale(0.98); }
+        .btn-primary { background-color: #4f46e5; }
+        .btn-primary:hover { background-color: #4338ca; transform: translateY(-2px); }
+        
+        .btn-secondary { background-color: #10b981; }
+        .btn-secondary:hover { background-color: #059669; transform: translateY(-2px); }
+        
+        .btn-danger { background-color: #ef4444; }
+        .btn-danger:hover { background-color: #dc2626; transform: translateY(-2px); }
+
+        /* Dosya Yükleme Input Gizleme */
+        input[type="file"] {
+            display: none;
+        }
+
+        /* Sonuç Alanı */
+        #result {
+            margin-top: 25px;
+            padding: 20px;
+            border: 2px solid #10b981;
+            background-color: #ecfdf5;
+            border-radius: 16px;
+            display: none;
+            animation: slideUp 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+        #result h3 {
+            color: #065f46;
+            font-size: 18px;
+            margin-bottom: 12px;
+        }
+        #qr-result-text {
+            color: #047857;
+            font-size: 15px;
+            word-wrap: break-word;
+            margin-bottom: 20px;
+            font-weight: 500;
+            background: rgba(255,255,255,0.6);
+            padding: 10px;
+            border-radius: 8px;
+        }
+        .result-actions {
+            display: flex;
+            gap: 10px;
+            justify-content: center;
+        }
+        .btn-small {
+            padding: 10px 15px;
+            font-size: 14px;
+            border-radius: 10px;
+            text-decoration: none;
+            flex: 1;
+        }
+
+        /* Hata Bildirimi (Toast) */
+        .toast {
+            position: fixed;
+            bottom: 30px;
+            left: 50%;
+            transform: translateX(-50%) translateY(100px);
+            background: #ef4444;
+            color: #fff;
+            padding: 12px 24px;
+            border-radius: 12px;
+            font-size: 14px;
+            font-weight: 500;
+            opacity: 0;
+            transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+            z-index: 1000;
+            box-shadow: 0 10px 20px rgba(239, 68, 68, 0.3);
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .toast.show {
+            transform: translateX(-50%) translateY(0);
+            opacity: 1;
+        }
+
+        @keyframes slideUp {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <div class="header">
+            <h1><i class="fa-solid fa-qrcode"></i> MuGöl Qr Okuyucu</h1>
+            <p>Kamerayla tarayın veya galeriden seçin</p>
+        </div>
+        
+        <!-- Kameranın görüntüleneceği alan -->
+        <div id="reader"></div>
+
+        <div class="action-group">
+            <button id="startBtn" class="btn btn-primary">
+                <i class="fa-solid fa-camera"></i> Kamerayı Başlat
+            </button>
+            
+            <button id="stopBtn" class="btn btn-danger" style="display:none;">
+                <i class="fa-solid fa-stop"></i> Kamerayı Durdur
+            </button>
+
+            <!-- Input kaybolmasın diye yazıyı bir span içine aldık -->
+            <label class="btn btn-secondary" id="fileLabel">
+                <span id="fileLabelText"><i class="fa-regular fa-image"></i> Resimden Oku</span>
+                <input type="file" id="qr-input-file" accept="image/*">
+            </label>
+        </div>
+
+        <!-- Sonucun görüntüleneceği alan -->
+        <div id="result">
+            <h3><i class="fa-solid fa-check-circle"></i> Tarama Başarılı!</h3>
+            <p id="qr-result-text"></p>
+            
+            <div class="result-actions">
+                <button id="copyBtn" class="btn btn-primary btn-small">
+                    <i class="fa-regular fa-copy"></i> Kopyala
+                </button>
+                <a id="qr-result-link" href="#" target="_blank" class="btn btn-secondary btn-small" style="display:none;">
+                    <i class="fa-solid fa-arrow-up-right-from-square"></i> Git
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <!-- Hata ve Uyarı Mesajları İçin -->
+    <div id="toast" class="toast"><i class="fa-solid fa-circle-exclamation"></i> <span id="toastMessage">Hata</span></div>
+
+    <script>
+        const startBtn = document.getElementById('startBtn');
+        const stopBtn = document.getElementById('stopBtn');
+        const fileInput = document.getElementById('qr-input-file');
+        const fileLabelText = document.getElementById('fileLabelText');
+        const fileLabel = document.getElementById('fileLabel');
+        const resultDiv = document.getElementById('result');
+        const resultText = document.getElementById('qr-result-text');
+        const resultLink = document.getElementById('qr-result-link');
+        const copyBtn = document.getElementById('copyBtn');
+        const readerDiv = document.getElementById('reader');
+        const toast = document.getElementById('toast');
+        const toastMessage = document.getElementById('toastMessage');
+        
+        let html5QrCode = new Html5Qrcode("reader");
+        let isCameraRunning = false;
+
+        // Özel Hata/Uyarı Bildirimi
+        function showToast(message, isError = true) {
+            toastMessage.innerText = message;
+            toast.style.background = isError ? "#ef4444" : "#10b981"; // Hatada kırmızı, başarıda yeşil
+            toast.classList.add("show");
+            setTimeout(() => {
+                toast.classList.remove("show");
+            }, 3000);
+        }
+
+        // Cihaz titreşimi için yardımcı fonksiyon
+        function vibrate() {
+            if (navigator.vibrate) {
+                navigator.vibrate(200);
+            }
+        }
+
+        // QR Kod başarıyla okunduğunda çalışacak fonksiyon
+        function onScanSuccess(decodedText) {
+            vibrate(); // Başarı titreşimi
+            
+            // Sonuç alanını göster
+            resultDiv.style.display = 'block';
+            resultText.innerText = decodedText;
+            
+            // Kopyalama butonunu sıfırla
+            copyBtn.innerHTML = '<i class="fa-regular fa-copy"></i> Kopyala';
+            
+            // Eğer okunan metin bir web sitesi ise link butonunu göster
+            if(decodedText.startsWith("http://") || decodedText.startsWith("https://")) {
+                resultLink.href = decodedText;
+                resultLink.style.display = 'flex';
+            } else {
+                resultLink.style.display = 'none';
+            }
+
+            // QR kod okunduktan sonra kamerayı otomatik durdur
+            if(isCameraRunning) {
+                stopScanning();
+            }
+        }
+
+        function onScanFailure(error) {
+            // Sürekli okuma denemesi yaptığı için burayı boş bırakıyoruz
+        }
+
+        // Kamerayı başlatan fonksiyon
+        function startScanning() {
+            resultDiv.style.display = 'none'; // Önceki sonucu gizle
+            
+            // Çerçevenin taşmasını önlemek için aspectRatio (Ekran oranı) ve dinamik boyut ayarlandı
+            const config = { 
+                fps: 10, 
+                aspectRatio: 1.0, 
+                qrbox: function(viewfinderWidth, viewfinderHeight) {
+                    let minEdgePercentage = 0.7; // Ekranın %70'ini kaplasın
+                    let minEdgeSize = Math.min(viewfinderWidth, viewfinderHeight);
+                    let qrboxSize = Math.floor(minEdgeSize * minEdgePercentage);
+                    return { width: qrboxSize, height: qrboxSize };
+                }
+            };
+            
+            html5QrCode.start({ facingMode: "environment" }, config, onScanSuccess, onScanFailure)
+            .then(() => {
+                isCameraRunning = true;
+                readerDiv.classList.add("active"); // CSS'i tetikler, etrafı karartır
+                startBtn.style.display = "none";
+                fileLabel.style.display = "none"; 
+                stopBtn.style.display = "flex";
+            })
+            .catch((err) => {
+                showToast("Kamera başlatılamadı! Lütfen tarayıcı izinlerini kontrol edin.");
+                console.error(err);
+            });
+        }
+
+        // Kamerayı durduran fonksiyon
+        function stopScanning() {
+            if(isCameraRunning) {
+                html5QrCode.stop().then(() => {
+                    isCameraRunning = false;
+                    readerDiv.classList.remove("active");
+                    startBtn.style.display = "flex";
+                    fileLabel.style.display = "flex";
+                    stopBtn.style.display = "none";
+                }).catch(err => {
+                    console.error("Kamera durdurulamadı.", err);
+                });
+            }
+        }
+
+        // Resimden QR Okuma Özelliği
+        fileInput.addEventListener('change', e => {
+            if (e.target.files.length == 0) {
+                return;
+            }
+            const imageFile = e.target.files[0];
+            
+            // Eğer kamera açıksa önce kapat
+            if(isCameraRunning) {
+                stopScanning();
+            }
+
+            resultDiv.style.display = 'none'; 
+            
+            // Yükleniyor durumu animasyonu
+            fileLabelText.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> İşleniyor...';
+            
+            // Dosyadan tarama yap (true parametresi resmi ekrana yansıtır. CSS ile boyutunu sınırlandırdık)
+            html5QrCode.scanFile(imageFile, true)
+            .then(decodedText => {
+                onScanSuccess(decodedText);
+                fileLabelText.innerHTML = '<i class="fa-regular fa-image"></i> Yeni Resim Oku';
+            })
+            .catch(err => {
+                showToast("Bu resimde geçerli bir QR kod bulunamadı.");
+                fileLabelText.innerHTML = '<i class="fa-regular fa-image"></i> Resimden Oku';
+            });
+            
+            // Input'u sıfırla ki aynı resmi tekrar seçebilsin
+            e.target.value = "";
+        });
+
+        // Metni Panoya Kopyalama Özelliği
+        copyBtn.addEventListener('click', () => {
+            const textToCopy = resultText.innerText;
+            navigator.clipboard.writeText(textToCopy).then(() => {
+                copyBtn.innerHTML = '<i class="fa-solid fa-check"></i> Kopyalandı!';
+                showToast("Metin başarıyla kopyalandı!", false);
+                setTimeout(() => {
+                    copyBtn.innerHTML = '<i class="fa-regular fa-copy"></i> Kopyala';
+                }, 2000);
+            }).catch(err => {
+                showToast("Kopyalama başarısız oldu.");
+            });
+        });
+
+        // Buton olayları
+        startBtn.addEventListener('click', startScanning);
+        stopBtn.addEventListener('click', stopScanning);
+    </script>
+</body>
+</html>
